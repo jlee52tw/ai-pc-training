@@ -75,8 +75,8 @@ medgemma-1.5-4b-it-int4/
 $env:http_proxy = "http://proxy-dmz.intel.com:912"
 $env:https_proxy = "http://proxy-dmz.intel.com:912"
 
-# Set up OpenVINO environment
-& "C:\path\to\openvino_genai\setupvars.ps1"
+# Set up OpenVINO environment (from repo root)
+& .\openvino_genai_windows_2026.0.0.0_x86_64\setupvars.ps1
 
 # Navigate to sample directory
 cd samples\cpp\visual_language_chat
@@ -85,6 +85,9 @@ cd samples\cpp\visual_language_chat
 cmake -B build
 cmake --build build --config Release
 ```
+
+> **Note**: The OpenVINO GenAI package is not tracked in git due to its size (~223MB).
+> Download it first — see the [Quick Setup](../../../README.md#quick-setup) in the top-level README.
 
 ### Using build_samples_msvc.bat (OpenVINO GenAI Package)
 
@@ -100,8 +103,8 @@ Build output location: `%USERPROFILE%\Documents\Intel\OpenVINO\openvino_cpp_samp
 ## Usage
 
 ```powershell
-# Set up OpenVINO environment
-& "C:\path\to\openvino_genai\setupvars.ps1"
+# Set up OpenVINO environment (from repo root)
+& .\openvino_genai_windows_2026.0.0.0_x86_64\setupvars.ps1
 
 # Run with GPU (recommended)
 .\medgemma_medical_chat.exe <MODEL_DIR> <IMAGE_PATH> GPU

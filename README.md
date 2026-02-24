@@ -18,9 +18,25 @@ Features:
 - GPU and CPU inference support
 - Includes sample chest X-ray test image (Public Domain)
 
+### Quick Setup
+
+```powershell
+# Set proxy (if behind Intel proxy)
+$env:http_proxy = "http://proxy-dmz.intel.com:912"
+$env:https_proxy = "http://proxy-dmz.intel.com:912"
+
+# Download and extract OpenVINO GenAI package
+Invoke-WebRequest -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/windows/openvino_genai_windows_2026.0.0.0_x86_64.zip" -OutFile "openvino_genai.zip" -Proxy $env:http_proxy
+Expand-Archive -Path "openvino_genai.zip" -DestinationPath "." -Force
+Remove-Item "openvino_genai.zip"
+
+# Set up OpenVINO environment
+& .\openvino_genai_windows_2026.0.0.0_x86_64\setupvars.ps1
+```
+
 ### Prerequisites
 
-- [OpenVINO GenAI 2026.0.0+](https://docs.openvino.ai/latest/)
+- [OpenVINO GenAI 2026.0.0+](https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.0/windows/) (downloaded above)
 - CMake 3.16+
 - Visual Studio 2022 (Windows)
 - [Hugging Face account](https://huggingface.co/) with MedGemma license accepted

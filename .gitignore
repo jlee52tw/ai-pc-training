@@ -27,6 +27,10 @@ cmake_install.cmake
 Makefile
 compile_commands.json
 
+# OpenVINO GenAI package (downloaded separately, ~223MB)
+openvino_genai_windows_*/
+*.zip
+
 # Model files (large, not tracked)
 **/medgemma-1.5-4b-it-int4/
 **/medgemma_cache/
