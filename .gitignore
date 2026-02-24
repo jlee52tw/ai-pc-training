@@ -1,0 +1,43 @@
+# Build outputs
+build/
+out/
+cmake-build-*/
+*.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+*.lib
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vs/
+.vscode/
+*.sln
+*.vcxproj
+*.vcxproj.*
+CMakeSettings.json
+
+# CMake generated
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Model files (large, not tracked)
+**/medgemma-1.5-4b-it-int4/
+**/medgemma_cache/
+*.bin
+*.onnx
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.env
