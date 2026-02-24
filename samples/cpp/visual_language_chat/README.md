@@ -1,140 +1,87 @@
-# C++ Visual Language Chat - MedGemma Medical Image Analysis
+# MedGemma Medical Image Analysis — C++ Sample
 
-This sample demonstrates medical image analysis using Google's MedGemma vision-language model with the OpenVINO GenAI VLMPipeline API.
+> **⚠️ DISCLAIMER**: MedGemma is designed for RESEARCH AND DEVELOPMENT purposes only.
+> Outputs are NOT intended for clinical diagnosis or patient care.
+> All results require verification by qualified medical professionals.
 
-> **⚠️ DISCLAIMER**: MedGemma is designed for RESEARCH AND DEVELOPMENT purposes only. Outputs are NOT intended for clinical diagnosis or patient care. All results require verification by qualified medical professionals.
+## Overview
 
-## Sample File
+This C++ sample uses Google's [MedGemma](https://huggingface.co/google/medgemma-1.5-4b-it) vision-language model with the **OpenVINO GenAI VLMPipeline API** to perform interactive medical image analysis (e.g., chest X-rays).
 
-- [`medgemma_medical_chat.cpp`](./medgemma_medical_chat.cpp) — Medical image analysis using Google's MedGemma model (`google/medgemma-1.5-4b-it`)
+For the full end-to-end setup (clone → download OpenVINO → build → export model → run), see the [top-level README](../../../README.md).
+
+## Files
+
+| File | Description |
+|---|---|
+| [`medgemma_medical_chat.cpp`](./medgemma_medical_chat.cpp) | Main sample — medical image chat with VLMPipeline |
+| [`load_image.cpp`](./load_image.cpp) / [`load_image.hpp`](./load_image.hpp) | Image loading utilities (uses stb_image) |
+| [`CMakeLists.txt`](./CMakeLists.txt) | Standalone CMake build (uses `find_package(OpenVINOGenAI)`) |
+| [`chest_xray_sample.png`](./chest_xray_sample.png) | Sample test image — Public Domain chest X-ray |
+| [`MEDGEMMA_SAMPLE.md`](./MEDGEMMA_SAMPLE.md) | Detailed technical documentation |
 
 ## Features
 
-- **VLMPipeline API**: Uses OpenVINO GenAI's VLMPipeline for visual language model inference
-- **Medical Disclaimer**: Displays important medical disclaimer at startup
-- **Predefined Medical Prompts**:
-  - `/describe` — General description of the medical image
-  - `/report` — Structured radiology report format
-  - `/abnormal` — Focus on abnormality detection
-  - `/anatomy` — Identify anatomical structures
-- **Multi-turn Conversation**: Supports follow-up questions about the same image
-- **Token Streaming**: Real-time output with streaming callback
-- **Device Selection**: Supports CPU and GPU inference
+- **VLMPipeline API** — OpenVINO GenAI visual language model inference
+- **Predefined Medical Prompts** — `/describe`, `/report`, `/abnormal`, `/anatomy`
+- **Multi-turn Conversation** — follow-up questions about the same image
+- **Token Streaming** — real-time output via `ov::genai::StreamingStatus` callback
+- **Device Selection** — CPU, GPU, or NPU
 
-## Prerequisites
+## Quick Build & Run
 
-- **OpenVINO GenAI 2026.0.0** or later
-- **Visual Studio 2022** (for Windows build)
-- **CMake 3.16+**
-- **Hugging Face account** with [MedGemma license accepted](https://huggingface.co/google/medgemma-1.5-4b-it)
-- GPU with sufficient memory (recommended) or CPU
-
-## Export MedGemma Model
-
-MedGemma requires accepting the [Health AI Developer Foundation's terms of use](https://huggingface.co/google/medgemma-1.5-4b-it) on Hugging Face before export.
-
-```sh
-# Login to Hugging Face (if not already logged in)
-huggingface-cli login
-
-# Export MedGemma with INT4 quantization
-optimum-cli export openvino -m google/medgemma-1.5-4b-it \
-    --task image-text-to-text --weight-format int4 --trust-remote-code \
-    medgemma-1.5-4b-it-int4
-```
-
-### Exported Model Files
-
-```
-medgemma-1.5-4b-it-int4/
-├── openvino_language_model.bin          (~2.2 GB)
-├── openvino_language_model.xml
-├── openvino_vision_embeddings_model.bin (~406 MB)
-├── openvino_vision_embeddings_model.xml
-├── openvino_text_embeddings_model.bin   (~640 MB)
-├── openvino_text_embeddings_model.xml
-├── openvino_tokenizer.bin
-├── openvino_tokenizer.xml
-├── openvino_detokenizer.bin
-├── openvino_detokenizer.xml
-├── config.json
-├── generation_config.json
-├── special_tokens_map.json
-├── tokenizer_config.json
-└── tokenizer.json
-```
-
-**Total Size**: ~3.3 GB (INT4 quantized from ~8.6 GB original)
-
-## Build Instructions
-
-### Standalone Build (This Repository)
+> **Prerequisite**: Download OpenVINO GenAI 2026.0.0 first — see [Step 3 in the main README](../../../README.md#step-3-download--extract-openvino-genai-202600).
 
 ```powershell
-# Set proxy (if behind Intel proxy)
+# 1. Set proxy (Intel network only)
 $env:http_proxy = "http://proxy-dmz.intel.com:912"
 $env:https_proxy = "http://proxy-dmz.intel.com:912"
 
-# Set up OpenVINO environment (from repo root)
+# 2. Initialize OpenVINO environment (from repo root)
+cd C:\working\ai-pc-training
 & .\openvino_genai_windows_2026.0.0.0_x86_64\setupvars.ps1
 
-# Navigate to sample directory
+# 3. Build
 cd samples\cpp\visual_language_chat
-
-# Build
 cmake -B build
 cmake --build build --config Release
+# Output: build\Release\medgemma_medical_chat.exe (~456 KB)
+
+# 4. Run (assumes model already exported — see main README Step 6)
+cd C:\working\ai-pc-training
+.\samples\cpp\visual_language_chat\build\Release\medgemma_medical_chat.exe `
+    medgemma-1.5-4b-it-int4 `
+    samples\cpp\visual_language_chat\chest_xray_sample.png `
+    GPU
 ```
 
-> **Note**: The OpenVINO GenAI package is not tracked in git due to its size (~223MB).
-> Download it first — see the [Quick Setup](../../../README.md#quick-setup) in the top-level README.
+## Interactive Commands
 
-### Using build_samples_msvc.bat (OpenVINO GenAI Package)
+| Command | Action |
+|---|---|
+| `/describe` | General description of the medical image |
+| `/report` | Structured radiology findings report |
+| `/abnormal` | Focus on detecting abnormalities |
+| `/anatomy` | Identify visible anatomical structures |
+| `/help` | Show all commands |
+| `/quit` or `/exit` | Exit the application |
 
-If you have the full OpenVINO GenAI package installed, you can also place these files into the corresponding sample directory and build:
+You can also type any free-form question about the loaded medical image.
+
+## Alternative Build: build_samples_msvc.bat
+
+If using the OpenVINO GenAI package's built-in sample builder:
 
 ```powershell
-cd C:\path\to\openvino_genai_windows_2026.0.0.0_x86_64\samples\cpp
+cd openvino_genai_windows_2026.0.0.0_x86_64\samples\cpp
 .\build_samples_msvc.bat
+# Output: %USERPROFILE%\Documents\Intel\OpenVINO\openvino_cpp_samples_build\intel64\Release\
 ```
-
-Build output location: `%USERPROFILE%\Documents\Intel\OpenVINO\openvino_cpp_samples_build\`
-
-## Usage
-
-```powershell
-# Set up OpenVINO environment (from repo root)
-& .\openvino_genai_windows_2026.0.0.0_x86_64\setupvars.ps1
-
-# Run with GPU (recommended)
-.\medgemma_medical_chat.exe <MODEL_DIR> <IMAGE_PATH> GPU
-
-# Run with CPU
-.\medgemma_medical_chat.exe <MODEL_DIR> <IMAGE_PATH> CPU
-```
-
-### Example Session
-
-```powershell
-.\medgemma_medical_chat.exe "C:\models\medgemma-1.5-4b-it-int4" "chest_xray_sample.png" GPU
-```
-
-### Interactive Commands
-
-During the chat session, use these shortcuts:
-- `/describe` — Describe the medical image
-- `/report` — Generate a structured findings report
-- `/abnormal` — Identify abnormalities
-- `/anatomy` — Describe visible anatomical structures
-- `/help` — Show help
-- `/quit` — Exit the application
 
 ## Test Image
 
-A sample chest X-ray image is included:
-
-- **File**: `chest_xray_sample.png`
-- **Source**: [Wikimedia Commons - Chest X-ray PA](https://commons.wikimedia.org/wiki/File:Chest_Xray_PA_3-8-2010.png)
+- **File**: `chest_xray_sample.png` (4 MB)
+- **Source**: [Wikimedia Commons — Chest X-ray PA](https://commons.wikimedia.org/wiki/File:Chest_Xray_PA_3-8-2010.png)
 - **License**: Public Domain
 
 ## References
@@ -142,4 +89,4 @@ A sample chest X-ray image is included:
 - [MedGemma Model Card](https://huggingface.co/google/medgemma-1.5-4b-it)
 - [OpenVINO GenAI Documentation](https://docs.openvino.ai/latest/openvino_genai.html)
 - [Optimum Intel Documentation](https://huggingface.co/docs/optimum/intel/index)
-- [Detailed Sample Documentation](./MEDGEMMA_SAMPLE.md)
+- [Detailed Technical Guide](./MEDGEMMA_SAMPLE.md)
