@@ -52,7 +52,7 @@ endif()
 # Fetch nlohmann/json for vocabulary loading
 FetchContent_Declare(json
     URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757f0f1b291571bf0e5e5e1b15b5e74ecc6665dea)
+    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d)
 FetchContent_MakeAvailable(json)
 
 # MedASR Medical Speech Recognition Sample
