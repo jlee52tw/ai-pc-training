@@ -25,7 +25,8 @@ and is optimized for medical terminology including radiology, internal medicine,
 | CMake | 3.16+ | Included with VS 2022 |
 | Python | 3.10–3.12 | For model export only |
 | [Hugging Face account](https://huggingface.co/) | — | Must accept [MedASR license](https://huggingface.co/google/medasr) |
-| GPU (Intel/discrete) | — | Recommended; CPU also works |
+
+> **Note**: CPU inference is recommended. GPU inference currently has compatibility issues with the Conformer model architecture.
 
 ## Quick Start
 
@@ -110,12 +111,11 @@ Or use any 16kHz mono WAV file with medical dictation content.
 # Run from the asr sample directory
 cd samples\cpp\asr
 
-# Run with CPU
+# Run with CPU (recommended)
 .\build\Release\medasr_medical_asr.exe medasr-openvino test_audio.wav CPU
-
-# Run with GPU (faster)
-.\build\Release\medasr_medical_asr.exe medasr-openvino test_audio.wav GPU
 ```
+
+> **Note**: GPU inference is currently not supported due to compatibility issues with the Conformer model's dynamic convolution layers. CPU inference is very fast (50x real-time) and is the recommended device.
 
 ### Expected Output
 
