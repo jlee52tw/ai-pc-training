@@ -11,6 +11,8 @@
  * - Medical terminology recognition
  *
  * Model: google/medasr (Conformer-CTC architecture, 105M parameters)
+ * Input: 16kHz mono WAV → mel spectrogram (128 bins) → OpenVINO inference
+ * Output: CTC-decoded medical transcription text
  *
  * Export command:
  *     python export_model.py --output medasr-openvino
@@ -32,67 +34,47 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
-#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-// Load vocabulary mapping (token ID -> string) from vocab.json
+// Load vocabulary mapping (token ID -> string) from vocab_id2token.json
 std::unordered_map<int, std::string> load_vocabulary(const std::filesystem::path& model_dir) {
     std::unordered_map<int, std::string> id_to_token;
 
-    auto vocab_path = model_dir / "vocab.json";
+    auto vocab_path = model_dir / "vocab_id2token.json";
     if (!std::filesystem::exists(vocab_path)) {
-        throw std::runtime_error("vocab.json not found in model directory: " + model_dir.string());
+        throw std::runtime_error("vocab_id2token.json not found in: " + model_dir.string());
     }
 
     std::ifstream vocab_file(vocab_path);
     nlohmann::json vocab_json;
     vocab_file >> vocab_json;
 
-    // vocab.json maps token_string -> token_id; we need the reverse
-    for (auto& [token, id] : vocab_json.items()) {
-        id_to_token[id.get<int>()] = token;
+    // Format: {"0": "<epsilon>", "1": "<s>", "2": "</s>", ...}
+    for (auto& [id_str, token] : vocab_json.items()) {
+        id_to_token[std::stoi(id_str)] = token.get<std::string>();
     }
 
-    std::cout << "Loaded vocabulary with " << id_to_token.size() << " tokens\n";
+    std::cout << "Loaded vocabulary: " << id_to_token.size() << " tokens\n";
     return id_to_token;
 }
 
-// Normalize audio: zero mean, unit variance (standard for CTC models)
-std::vector<float> normalize_audio(const std::vector<float>& audio) {
-    if (audio.empty()) return audio;
-
-    double sum = std::accumulate(audio.begin(), audio.end(), 0.0);
-    double mean = sum / audio.size();
-
-    double sq_sum = 0.0;
-    for (float s : audio) {
-        sq_sum += (s - mean) * (s - mean);
-    }
-    double std_dev = std::sqrt(sq_sum / audio.size());
-    if (std_dev < 1e-7) std_dev = 1e-7;  // avoid division by zero
-
-    std::vector<float> normalized(audio.size());
-    for (size_t i = 0; i < audio.size(); i++) {
-        normalized[i] = static_cast<float>((audio[i] - mean) / std_dev);
-    }
-    return normalized;
-}
-
-// CTC greedy decoding: argmax -> collapse repeats -> remove blank tokens
+// CTC greedy decoding: argmax → collapse repeats → remove blank tokens
+// Handles SentencePiece ▁ (U+2581) as word boundary (space)
 std::string ctc_greedy_decode(const float* logits, size_t time_steps, size_t vocab_size,
                                const std::unordered_map<int, std::string>& vocab,
                                int blank_id = 0) {
-    std::string result;
+    // Step 1: Collapse repeats and remove blanks
+    std::vector<int> collapsed;
     int prev_token = -1;
-
     for (size_t t = 0; t < time_steps; t++) {
-        // Find argmax for this time step
         int best_id = 0;
         float best_score = logits[t * vocab_size];
         for (size_t v = 1; v < vocab_size; v++) {
@@ -101,29 +83,38 @@ std::string ctc_greedy_decode(const float* logits, size_t time_steps, size_t voc
                 best_id = static_cast<int>(v);
             }
         }
-
-        // CTC collapse: skip blanks and repeated tokens
         if (best_id != blank_id && best_id != prev_token) {
-            auto it = vocab.find(best_id);
-            if (it != vocab.end()) {
-                std::string token = it->second;
-                // Handle special word-piece tokens (e.g., "▁" prefix = space)
-                if (!token.empty() && token[0] == '|') {
-                    // Pipe character often used as word boundary in CTC vocabs
-                    result += " ";
-                } else {
-                    result += token;
-                }
-            }
+            collapsed.push_back(best_id);
         }
         prev_token = best_id;
     }
 
-    // Trim leading/trailing whitespace
+    // Step 2: Convert token IDs to text with SentencePiece handling
+    // ▁ (U+2581, UTF-8: 0xE2 0x96 0x81) represents word boundary (space)
+    std::string result;
+    static const std::string sp_prefix = "\xe2\x96\x81";  // ▁ in UTF-8
+
+    for (int id : collapsed) {
+        auto it = vocab.find(id);
+        if (it == vocab.end()) continue;
+        const std::string& token = it->second;
+
+        // Skip special tokens like </s>, <s>
+        if (token == "</s>" || token == "<s>" || token == "<unk>") continue;
+
+        // Handle SentencePiece word boundary prefix
+        if (token.size() >= sp_prefix.size() &&
+            token.substr(0, sp_prefix.size()) == sp_prefix) {
+            result += " " + token.substr(sp_prefix.size());
+        } else {
+            result += token;
+        }
+    }
+
+    // Trim leading whitespace
     size_t start = result.find_first_not_of(' ');
-    size_t end = result.find_last_not_of(' ');
     if (start == std::string::npos) return "";
-    return result.substr(start, end - start + 1);
+    return result.substr(start);
 }
 
 void print_usage(const char* program_name) {
@@ -163,7 +154,6 @@ int main(int argc, char* argv[]) try {
     std::string wav_path = argv[2];
     std::string device = (argc == 4) ? argv[3] : "CPU";
 
-    // Validate paths
     if (!std::filesystem::exists(model_dir)) {
         std::cerr << "Error: Model directory does not exist: " << model_dir << "\n";
         return EXIT_FAILURE;
@@ -179,17 +169,28 @@ int main(int argc, char* argv[]) try {
     std::cout << "Loading vocabulary...\n";
     auto vocabulary = load_vocabulary(model_dir);
 
-    // Read and normalize audio
+    // Load mel filterbank matrix (257 x 128)
+    utils::audio::MelConfig mel_config;
+    int freq_bins = mel_config.n_fft / 2 + 1;  // 257
+    auto mel_filters_path = (model_dir / "mel_filters.bin").string();
+    std::cout << "Loading mel filterbank...\n";
+    auto mel_filters = utils::audio::load_mel_filters(mel_filters_path, freq_bins, mel_config.n_mels);
+
+    // Read audio
     std::cout << "Reading audio: " << wav_path << "\n";
     auto raw_audio = utils::audio::read_wav(wav_path);
+    double audio_duration = raw_audio.size() / 16000.0;
     std::cout << "Audio duration: " << std::fixed << std::setprecision(1)
-              << (raw_audio.size() / 16000.0) << " seconds ("
-              << raw_audio.size() << " samples)\n";
+              << audio_duration << " seconds (" << raw_audio.size() << " samples)\n";
 
-    auto audio = normalize_audio(raw_audio);
+    // Compute mel spectrogram
+    std::cout << "Computing mel spectrogram...\n";
+    size_t num_frames = 0;
+    auto mel_features = utils::audio::compute_mel_spectrogram(raw_audio, mel_config, mel_filters, num_frames);
+    std::cout << "Mel spectrogram: " << num_frames << " frames x " << mel_config.n_mels << " bins\n";
 
     // Initialize OpenVINO Runtime
-    std::cout << "Device: " << device << "\n\n";
+    std::cout << "Device: " << device << "\n";
     std::cout << "Initializing OpenVINO Runtime...\n";
     ov::Core core;
 
@@ -209,32 +210,26 @@ int main(int argc, char* argv[]) try {
     std::cout << "Loading model: " << model_xml.filename() << "\n";
     auto model = core.read_model(model_xml);
 
-    // Configure device-specific options
     ov::AnyMap config;
-    if (device == "GPU" || device.find("GPU") != std::string::npos) {
+    if (device.find("GPU") != std::string::npos) {
         config.insert({ov::cache_dir("medasr_cache")});
     }
 
     auto compiled_model = core.compile_model(model, device, config);
     auto infer_request = compiled_model.create_infer_request();
 
-    // Prepare input tensor
-    auto input = compiled_model.input(0);
-    std::cout << "Input shape: " << input.get_shape() << "\n";
+    // Prepare input tensors
+    // input_features: [1, num_frames, 128]
+    ov::Shape features_shape = {1, num_frames, static_cast<size_t>(mel_config.n_mels)};
+    ov::Tensor features_tensor(ov::element::f32, features_shape, mel_features.data());
 
-    // Create input tensor [1, audio_length] or [1, 1, audio_length]
-    auto input_shape = input.get_partial_shape();
-    ov::Shape tensor_shape;
-    if (input_shape.size() == 2) {
-        tensor_shape = {1, audio.size()};
-    } else if (input_shape.size() == 3) {
-        tensor_shape = {1, 1, audio.size()};
-    } else {
-        tensor_shape = {1, audio.size()};
-    }
+    // attention_mask: [1, num_frames] - all true (no padding), boolean type
+    std::vector<uint8_t> attn_mask(num_frames, 1);
+    ov::Shape mask_shape = {1, num_frames};
+    ov::Tensor mask_tensor(ov::element::boolean, mask_shape, attn_mask.data());
 
-    ov::Tensor input_tensor(ov::element::f32, tensor_shape, audio.data());
-    infer_request.set_input_tensor(input_tensor);
+    infer_request.set_tensor("input_features", features_tensor);
+    infer_request.set_tensor("attention_mask", mask_tensor);
 
     // Run inference
     std::cout << "Running inference...\n";
@@ -246,7 +241,8 @@ int main(int argc, char* argv[]) try {
     // Get output and decode
     auto output_tensor = infer_request.get_output_tensor();
     auto output_shape = output_tensor.get_shape();
-    std::cout << "Output shape: " << output_shape << "\n";
+    std::cout << "Output shape: [" << output_shape[0] << ", " << output_shape[1]
+              << ", " << output_shape[2] << "]\n";
 
     const float* logits = output_tensor.data<float>();
     size_t time_steps = output_shape[1];
@@ -262,9 +258,9 @@ int main(int argc, char* argv[]) try {
     std::cout << "================================================================\n";
     std::cout << "Inference time: " << duration.count() << " ms\n";
     std::cout << "Audio duration: " << std::fixed << std::setprecision(1)
-              << (raw_audio.size() / 16000.0) << " s\n";
+              << audio_duration << " s\n";
     std::cout << "Real-time factor: " << std::fixed << std::setprecision(2)
-              << (duration.count() / 1000.0) / (raw_audio.size() / 16000.0) << "x\n";
+              << (duration.count() / 1000.0) / audio_duration << "x\n";
 
     std::cout << "\nRemember: Always verify medical transcriptions with qualified professionals.\n";
 
