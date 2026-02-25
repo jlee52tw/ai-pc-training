@@ -4,6 +4,22 @@ Training materials and samples for AI on PC development using Intel OpenVINO Gen
 
 ## Contents
 
+### MedASR Medical Speech Recognition (OpenVINO Runtime C++)
+
+A C++ sample demonstrating medical speech-to-text transcription using Google's [MedASR](https://huggingface.co/google/medasr) Conformer-CTC model with OpenVINO Runtime.
+
+- **Sample code**: [`samples/cpp/asr/`](samples/cpp/asr/)
+- **Quick start**: [`samples/cpp/asr/README.md`](samples/cpp/asr/README.md)
+
+Features:
+- Medical dictation transcription (radiology, clinical notes)
+- CTC greedy decoding with vocabulary mapping
+- GPU and CPU inference support
+- Real-time factor reporting
+- Includes Python export script for model conversion
+
+---
+
 ### MedGemma Medical Image Analysis (OpenVINO GenAI C++)
 
 A C++ sample demonstrating medical image analysis using Google's [MedGemma](https://huggingface.co/google/medgemma-1.5-4b-it) vision-language model with the OpenVINO GenAI VLMPipeline API.
