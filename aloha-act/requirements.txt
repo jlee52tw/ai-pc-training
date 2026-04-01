@@ -1,0 +1,26 @@
+# ACT (Action Chunking with Transformers) — Python Dependencies
+# Install with:
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.7.1+cpu
+torchvision==0.22.1+cpu
+pyquaternion==0.9.9
+pyyaml==6.0.1
+rospkg==1.5.0
+pexpect==4.8.0
+mujoco==3.2.6
+dm_control==1.0.26
+matplotlib==3.10.0
+einops==0.6.0
+packaging==23.0
+h5py==3.12.1
+ipython==8.12.0
+opencv-python==4.10.0.84
+transformers==4.37.0
+accelerate==0.23.0
+huggingface-hub==0.24.7
+openvino==2025.4.1
+numpy<2.0
+requests

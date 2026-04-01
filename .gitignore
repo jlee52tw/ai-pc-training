@@ -15,6 +15,7 @@ cmake-build-*/
 # IDE
 .vs/
 .vscode/
+.idea/
 *.sln
 *.vcxproj
 *.vcxproj.*
@@ -33,11 +34,22 @@ compile_commands.json
 *.bin
 *.onnx
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
+env/
+.env
+
+# Downloaded/generated artifacts (recreated by main.py setup)
+aloha-act/sim_insertion_scripted/
+aloha-act/edge-ai-suites/
+
 # OS
 Thumbs.db
 .DS_Store
-
-# Python
-__pycache__/
-*.pyc
-.env
