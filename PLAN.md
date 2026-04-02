@@ -3,7 +3,7 @@
 > **目標：** 將 [openvino_notebooks](https://github.com/openvinotoolkit/openvino_notebooks) 及相關範例轉換為
 > 獨立的 CLI 專案，供 OEM/ODM 客戶在 Intel AI PC 平台上進行技術訓練。
 >
-> **目標平台：** Windows 11 + Intel iGPU (Arc / Iris Xe) + OpenVINO
+> **目標平台：** Windows 11 + Intel iGPU (Arc / Iris Xe) + Intel NPU + OpenVINO
 >
 > **Repository：** https://github.com/jlee52tw/ai-pc-training
 
@@ -61,6 +61,38 @@
 - `evaluate` — OpenVINO inference on Intel iGPU
 - Auto-patches DETR argparser and cuda calls for CPU-only training
 - Supports: `sim_transfer_cube_scripted`, `sim_insertion_scripted`
+
+---
+
+### 3. Gemma 3 270M — LLM on CPU / GPU / NPU
+
+| Item | Detail |
+|------|--------|
+| **Source** | `openvino_notebooks/notebooks/gemma3/gemma3.ipynb` + `google/gemma-3-270m` |
+| **Location** | [`gemma3-270m/`](gemma3-270m/) |
+| **Type** | Python CLI / OpenVINO GenAI LLMPipeline |
+| **Status** | ✅ Complete — committed & pushed |
+
+**Deliverables:**
+
+| File | Description |
+|------|-------------|
+| `main.py` | CLI — 3 子命令 (export → benchmark → chat) |
+| `README.md` | 完整繁體中文文件 (效能比較、NPU 量化說明) |
+
+**Verified Results (3 devices):**
+
+| Device | Throughput | TPOT | TTFT | Model Size |
+|--------|-----------|------|------|------------|
+| CPU | 83.71 tokens/s | 11.95 ms | 20.53 ms | 832 MB (FP16) |
+| GPU (iGPU) | **145.10 tokens/s** | 6.89 ms | 15.11 ms | 832 MB (FP16) |
+| NPU | 100.51 tokens/s | 9.95 ms | 85.96 ms | 209 MB (INT4) |
+
+**Key Features:**
+- Dual export: FP16 (CPU/GPU) + INT4-NPU (symmetric per-channel, ratio 1.0)
+- Python-based benchmark_genai (embedded, no external exe needed)
+- Interactive chat with streaming output
+- Intel lab proxy auto-configured
 
 ---
 
@@ -131,6 +163,7 @@ demo visibility.
 |------|-----------|
 | 2026-03 | ✅ MedGemma C++ sample |
 | 2026-04 | ✅ ACT robotics demo (main.py + train.py) |
+| 2026-04 | ✅ Gemma 3 270M — CPU / GPU / NPU benchmark |
 | 2026-04+ | Next task TBD |
 
 ---

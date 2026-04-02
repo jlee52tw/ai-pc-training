@@ -54,6 +54,11 @@ aloha-act/edge-ai-suites/
 aloha-act/data/
 aloha-act/checkpoints/
 
+# Gemma3 exported models (large, created by main.py export)
+gemma3-270m/gemma-3-270/
+gemma3-270m/gemma-3-270-npu/
+gemma3-270m/gemma-3-270-npu-test*/
+
 # OS
 Thumbs.db
 .DS_Store

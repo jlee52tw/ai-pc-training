@@ -17,6 +17,15 @@ on **Intel iGPU** using **OpenVINO**, converted from the
 - **Documentation**: [`aloha-act/README.md`](aloha-act/README.md) (繁體中文)
 - **Results**: 90% success rate, ~21 FPS on Intel iGPU
 
+### Gemma 3 270M — LLM on CPU / GPU / NPU
+
+Export and benchmark Google **Gemma-3-270m** on all 3 Intel AI PC accelerators
+using **OpenVINO GenAI LLMPipeline**.
+
+- **CLI**: [`gemma3-270m/main.py`](gemma3-270m/) — export / benchmark / chat
+- **Documentation**: [`gemma3-270m/README.md`](gemma3-270m/README.md) (繁體中文)
+- **Results**: CPU 84 tokens/s, **GPU 145 tokens/s**, NPU 101 tokens/s
+
 ### MedGemma Medical Image Analysis (OpenVINO GenAI)
 
 A C++ sample demonstrating medical image analysis using Google's [MedGemma](https://huggingface.co/google/medgemma-1.5-4b-it) vision-language model with the OpenVINO GenAI VLMPipeline API.
