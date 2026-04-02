@@ -269,13 +269,23 @@ Reward >= 4: 9/10 = 90.0%
 
 ```
 aloha-act/
-├── main.py              # Single CLI entry point (setup / convert / evaluate)
+├── main.py              # 推論 CLI (setup / convert / evaluate)
+├── train.py             # 訓練 CLI (generate / train / convert / evaluate)
 ├── requirements.txt     # Pinned Python dependencies
 ├── README.md            # This file
 │
 ├── sim_insertion_scripted/          # (created by setup)
 │   └── four_camera/
 │       └── policy_best.ckpt        # Pre-trained weights
+│
+├── data/                            # (created by train.py generate)
+│   └── sim_transfer_cube_scripted/  # 50 x .hdf5 demo episodes
+│
+├── checkpoints/                     # (created by train.py train)
+│   └── sim_transfer_cube_scripted/
+│       ├── policy_best.ckpt         # Trained PyTorch weights
+│       ├── policy_best.xml          # OpenVINO IR (after convert)
+│       └── policy_best.bin
 │
 └── edge-ai-suites/                 # (created by setup — sparse checkout)
     └── robotics-ai-suite/
@@ -284,11 +294,125 @@ aloha-act/
                 ├── act/             # ACT source code (patched)
                 │   ├── ov_convert.py
                 │   ├── imitate_episodes.py
+                │   ├── record_sim_episodes.py
                 │   └── detr/
                 └── patches/
                     ├── ov/          # OpenVINO patches
                     └── ipex/        # IPEX patches
 ```
+
+---
+
+## 自訂訓練流程（train.py）
+
+除了使用預訓練模型展示推論之外，客戶也可以用 `train.py` 自行訓練 ACT 模型，
+學習不同的模擬任務。
+
+### 支援的模擬任務
+
+| 任務名稱 | 說明 | 相機數 |
+|----------|------|--------|
+| `sim_transfer_cube_scripted` | 方塊搬移 — 左手抓取方塊交給右手 | 4 |
+| `sim_insertion_scripted` | 插銷任務 — 將圓柱插入孔洞 | 4 |
+
+### 完整 4 步流程
+
+> **前置條件：** 請先執行 `python main.py setup` 建立 ACT 環境。
+
+#### Step 1 — 生成示範資料
+
+```powershell
+python train.py generate --task sim_transfer_cube_scripted --episodes 50
+```
+
+在 MuJoCo 模擬環境中用腳本策略（scripted policy）錄製 50 個 episode 的
+專家示範軌跡，產生 `.hdf5` 檔案。
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| `--task` | `sim_transfer_cube_scripted` | 任務名稱 |
+| `--episodes` | `50` | 生成的 episode 數量 |
+| `--no-proxy` | *(旗標)* | 停用 Intel lab proxy |
+
+> **輸出：** `data/sim_transfer_cube_scripted/` 內 50 個 `.hdf5` 檔案，每個約 1.4 GB
+
+#### Step 2 — 訓練模型
+
+```powershell
+python train.py train --task sim_transfer_cube_scripted --epochs 2000
+```
+
+使用示範資料訓練 ACT 模型。訓練在 CPU 上進行（PyTorch, CPU-only）。
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| `--task` | `sim_transfer_cube_scripted` | 任務名稱 |
+| `--epochs` | `2000` | 訓練輪數 |
+| `--no-proxy` | *(旗標)* | 停用 Intel lab proxy |
+
+**預設超參數（與 ACT 原始論文一致）：**
+
+| 超參數 | 值 | 說明 |
+|--------|----|------|
+| `kl_weight` | 10 | KL 散度損失權重 |
+| `chunk_size` | 100 | 動作分塊大小 |
+| `hidden_dim` | 512 | Transformer 隱藏維度 |
+| `dim_feedforward` | 3200 | FFN 內部維度 |
+| `batch_size` | 8 | 批次大小 |
+| `lr` | 1e-5 | 學習率 |
+| `seed` | 0 | 隨機種子 |
+
+> **訓練時間估計：** 每個 epoch 約 69 秒（CPU），2000 epochs ≈ **38 小時**。
+> 可以先用 `--epochs 100` 做短測試（約 2 小時）確認流程正常。
+
+> **輸出：** `checkpoints/sim_transfer_cube_scripted/policy_best.ckpt`
+
+#### Step 3 — 轉換為 OpenVINO IR
+
+```powershell
+python train.py convert --task sim_transfer_cube_scripted
+```
+
+將訓練好的 checkpoint 轉換為 OpenVINO IR 格式，以便在 Intel iGPU 上推論。
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| `--task` | `sim_transfer_cube_scripted` | 任務名稱 |
+
+> **輸出：** `checkpoints/sim_transfer_cube_scripted/policy_best.xml` + `.bin`
+
+#### Step 4 — 評估模型
+
+```powershell
+python train.py evaluate --task sim_transfer_cube_scripted --device GPU
+```
+
+用 OpenVINO 在 Intel iGPU 上執行 10 個 rollout episode，評估模型效果。
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| `--task` | `sim_transfer_cube_scripted` | 任務名稱 |
+| `--device` | `GPU` | OpenVINO 推論裝置（`GPU` / `CPU` / `AUTO`） |
+
+### 訓練過程關鍵 (CPU-only 修補)
+
+`train.py` 會自動對 ACT 原始碼進行兩項修補，使其能在僅有 CPU 的環境中進行訓練：
+
+1. **`detr/main.py`** — `parse_args()` → `parse_known_args()` (忽略 `--device` 參數)；
+   移除 `model.cuda()` 呼叫
+2. **`imitate_episodes.py`** — 訓練函數中的 `.cuda()` → `.cpu()`
+
+這些修補是**冪等的**（可安全重複執行），不會影響 `main.py` 的推論流程。
+
+### 獎勵等級對照（方塊搬移任務）
+
+| 等級 | 意義 | 機器人行為 |
+|------|------|-----------|
+| 0 | 基本互動 | 機器臂開始移動 |
+| 1 | 接觸方塊 | 左手抓取到方塊 |
+| 2 | 舉起方塊 | 方塊離開桌面 |
+| 3 | 移交中 | 方塊靠近右手 |
+| 4 | **完全成功** | 右手成功接住方塊 ✓ |
 
 ---
 

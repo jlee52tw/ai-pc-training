@@ -50,6 +50,10 @@ env/
 aloha-act/sim_insertion_scripted/
 aloha-act/edge-ai-suites/
 
+# Training artifacts (created by train.py — large files)
+aloha-act/data/
+aloha-act/checkpoints/
+
 # OS
 Thumbs.db
 .DS_Store
