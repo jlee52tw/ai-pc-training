@@ -2,7 +2,20 @@
 
 Training materials and samples for AI on PC development using Intel OpenVINO.
 
+> **Project Plan:** See [PLAN.md](PLAN.md) for full roadmap and candidate tasks.
+
 ## Contents
+
+### ACT — Action Chunking with Transformers (Robotics)
+
+A standalone Python CLI that runs **ACT imitation-learning** inference and training
+on **Intel iGPU** using **OpenVINO**, converted from the
+[aloha-act notebook](https://github.com/openvinotoolkit/openvino_notebooks/tree/latest/notebooks/aloha-act).
+
+- **Inference CLI**: [`aloha-act/main.py`](aloha-act/) — setup / convert / evaluate (pre-trained model)
+- **Training CLI**: [`aloha-act/train.py`](aloha-act/) — generate / train / convert / evaluate (custom model)
+- **Documentation**: [`aloha-act/README.md`](aloha-act/README.md) (繁體中文)
+- **Results**: 90% success rate, ~21 FPS on Intel iGPU
 
 ### MedGemma Medical Image Analysis (OpenVINO GenAI)
 
